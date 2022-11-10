@@ -1,0 +1,15 @@
+[package]
+name = "pirate_sim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bracket-lib = "^0.8"
+num-traits = "^0.2"
+# specs = "~0.18"
+# specs-derive = "~0.4"
+
+[profile.release]
+codegen-units = 1
+lto = "on"
+incremental = true
