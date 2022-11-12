@@ -1,4 +1,5 @@
 //! TODO: SET UP LOGGER NOW
+//! TODO: switch from f32 to f64 throughout the program
 
 #![warn(clippy::pedantic, clippy::perf)]
 
@@ -106,18 +107,17 @@ fn render_map(hm: worldgen::Map, seed: usize) -> Result<(), Box<dyn Error + Send
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let seed = {
-        std::env::var("PS_SEED")
-            .map(|s| usize::from_str_radix(&*s, 10).unwrap())
-            .unwrap_or_else(|_| {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as usize
-            }) as u64
-    };
+    let seed = std::env::var("PS_SEED").map_or_else(
+        |_| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as usize
+        },
+        |s| s.parse().unwrap(),
+    ) as u64;
 
-    //TODO: make sure Xs and Ys align with width x = width, y = height
+    //TODO: make sure Xs and Ys align with width/height correctly throughout the program x = width, y = height
     let gen = worldgen::GenParam {
         seed,
         poles: worldgen::Poles::Random,
