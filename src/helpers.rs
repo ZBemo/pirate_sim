@@ -46,3 +46,28 @@ pub fn points_around<A: num_traits::Num + Copy>(x: A, y: A) -> [Point<A>; 8] {
         (x + one, y + one),
     ]
 }
+
+/// a rectangle with a height and width
+#[derive(Debug, Clone, Copy)]
+pub struct RectArea {
+    pub width: u8,
+    pub height: u8,
+}
+
+impl RectArea {
+    pub fn new(width: u8, height: u8) -> Self {
+        RectArea { width, height }
+    }
+
+    pub fn area(&self) -> usize {
+        self.width as usize * self.height as usize
+    }
+
+    pub fn point_to_index(&self, x: usize, y: usize) -> usize {
+        point_to_index(x, y, self.width as usize)
+    }
+
+    pub fn index_to_point(&self, i: usize) -> Point<usize> {
+        index_to_point(i, self.width as usize, self.height as usize)
+    }
+}

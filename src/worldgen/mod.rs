@@ -16,7 +16,7 @@ use bracket_lib::{
 
 use crate::helpers::{index_to_point, point_to_index, Distance};
 
-use super::basics::RectArea;
+use super::helpers::RectArea;
 
 /// a river or body of water
 pub struct River {
@@ -355,13 +355,21 @@ fn erode(map: ErodeMap, area: &RectArea) -> Vec<f32> {
             let mut dice = bracket_lib::random::RandomNumberGenerator::seeded(map.seed);
 
             // roll until we find a tile that's sea
+            // might need a more efficient way to do this
             let start_idx = loop {
                 let roll = dice.roll_dice(1, map.area.area() as i32);
 
                 if connected_to_corner[roll as usize] {
-                    break roll;
+                    break roll as usize;
                 }
             };
+
+            let start_point =
+                index_to_point(start_idx, map.area.width as usize, map.area.height as usize);
+
+            // pathfind in
+
+            // mark adjacent tiles as sea
         }
     }
 

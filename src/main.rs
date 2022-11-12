@@ -2,15 +2,14 @@
 
 #![warn(clippy::pedantic, clippy::perf)]
 
-mod basics;
 mod helpers;
 mod worldgen;
 
 use std::error::Error;
 
-use basics::RectArea;
 use bracket_lib::terminal::{BTerm, GameState, RGB};
 use helpers::Distance;
+use helpers::RectArea;
 use worldgen::gen_map;
 
 struct RenderMap {
