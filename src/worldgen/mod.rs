@@ -28,10 +28,10 @@ pub struct River {
 pub struct Map {
     pub size: RectArea,
     /// the level at which something goes into the sea/underwater
-    pub sea_level: f32,
-    pub min_height: f32,
-    pub max_height: f32,
-    pub height_map: Vec<f32>,
+    pub sea_level: f64,
+    pub min_height: f64,
+    pub max_height: f64,
+    pub height_map: Vec<f64>,
     pub rivers: Vec<River>,
 }
 
@@ -63,7 +63,7 @@ fn gen_region(param: GenParam) {}
 
 pub fn gen_map(params: GenParam) -> Map {
     let (h, w) = (params.world_size.height, params.world_size.width);
-    // let map = [[0f32; std::u8::MAX as usize]; std::u8::MAX as usize];
+    // let map = [[0f64; std::u8::MAX as usize]; std::u8::MAX as usize];
     let mut rng = RandomNumberGenerator::seeded(params.seed);
     let mut noise = FastNoise::seeded(rng.next_u64());
 
@@ -83,14 +83,14 @@ pub fn gen_map(params: GenParam) -> Map {
                 * w as f32
                 * 2.;
 
-            height_map.push(n);
+            height_map.push(n as f64);
         }
     }
 
-    let sea_level = decide_sea_level(&*height_map, (params.target_water as f32) / 255.).unwrap();
+    let sea_level = decide_sea_level(&*height_map, (params.target_water as f64) / 255.).unwrap();
 
-    let mut min_height = height_map.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-    let mut max_height = height_map.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+    let mut min_height = height_map.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+    let mut max_height = height_map.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
     let ret = Map {
         size: params.world_size,
@@ -105,16 +105,16 @@ pub fn gen_map(params: GenParam) -> Map {
 }
 
 struct ErodeMap<'a> {
-    base: &'a [f32],
+    base: &'a [f64],
     area: RectArea,
-    highest_height: f32,
-    lowest_height: f32,
-    sea_lvl: f32,
+    highest_height: f64,
+    lowest_height: f64,
+    sea_lvl: f64,
     seed: u64,
 }
 
 impl<'a> ErodeMap<'a> {
-    fn is_underwater(&self, height: f32) -> bool {
+    fn is_underwater(&self, height: f64) -> bool {
         height <= self.sea_lvl
     }
     fn total_size(&self) -> u32 {
@@ -173,7 +173,8 @@ impl<'a> BaseMap for ErodeMap<'a> {
 
             ret.push((
                 self.point2d_to_index(c_p),
-                Distance::distance(p_h, h) / Distance::distance(self.sea_lvl, self.highest_height),
+                (Distance::distance(p_h, h) / Distance::distance(self.sea_lvl, self.highest_height))
+                    as f32,
             ));
         }
 
@@ -197,14 +198,14 @@ impl<'a> Algorithm2D for ErodeMap<'a> {
 /// erode a map down
 /// maybe A* towards inland regions below sea level with higher heights weighted lower.
 /// erode out from there?
-fn erode(map: ErodeMap, area: &RectArea) -> Vec<f32> {
+fn erode(map: ErodeMap, area: &RectArea) -> Vec<f64> {
     // first: randomly erode, so that water can move inland or outland
 
-    let mut eroded_height_map: Vec<f32> = map.base.iter().copied().collect();
+    let mut eroded_height_map: Vec<f64> = map.base.iter().copied().collect();
     // initialize seed
     let mut rng = RandomNumberGenerator::seeded(map.seed);
     let erosion_weight = 0.05;
-    let is_land = |h: f32| h > map.sea_lvl;
+    let is_land = |h: f64| h > map.sea_lvl;
 
     // make white noise for a very very loose approximation of erosion
     // in the future maybe simulate rainfall
@@ -217,7 +218,7 @@ fn erode(map: ErodeMap, area: &RectArea) -> Vec<f32> {
         let x = (i - y) / map.area.width as usize;
 
         if (is_land(*h)) {
-            *h -= white_noise.get_noise(x as f32, y as f32).abs() * erosion_weight;
+            *h -= (white_noise.get_noise(x as f32, y as f32).abs() * erosion_weight) as f64;
         }
     }
 
@@ -381,17 +382,17 @@ fn erode(map: ErodeMap, area: &RectArea) -> Vec<f32> {
 /// The 1 / height_map.len() variance is allowed in order to accommodate for lower resolution maps where you might not be able to get exactly the desired percent.
 ///
 /// Should only error if a NaN is present in the input, or if the algorithm is bugged.
-fn decide_sea_level(height_map: &[f32], wanted_percent: f32) -> Result<f32, ()> {
-    let mut min = height_map.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-    let mut max = height_map.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-    let lowest_percent = wanted_percent - 1. / height_map.len() as f32;
-    let highest_percent = wanted_percent + 1. / height_map.len() as f32;
+fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> {
+    let mut min = height_map.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+    let mut max = height_map.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+    let lowest_percent = wanted_percent - 1. / height_map.len() as f64;
+    let highest_percent = wanted_percent + 1. / height_map.len() as f64;
 
-    let percent_uw = |sl: &f32| {
+    let percent_uw = |sl: &f64| {
         height_map
             .iter()
             .fold(0., |t, h| if h <= sl { t + 1. } else { t })
-            / (height_map.len() as f32)
+            / (height_map.len() as f64)
     };
 
     loop {
@@ -405,13 +406,13 @@ fn decide_sea_level(height_map: &[f32], wanted_percent: f32) -> Result<f32, ()> 
                 "decreasing uw%: {}\nmid: {}\nmax: {}\nmin{}",
                 percent_uw, mid, max, min
             );
-            max = mid + f32::EPSILON;
+            max = mid + f64::EPSILON;
         } else if (percent_uw < lowest_percent) {
             println!(
                 "increasing uw%: {}\nmid: {}\nmax: {}\nmin{}",
                 percent_uw, mid, max, min
             );
-            min = mid - f32::EPSILON;
+            min = mid - f64::EPSILON;
         } else {
             return Ok(mid);
         }

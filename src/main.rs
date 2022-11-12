@@ -1,5 +1,5 @@
 //! TODO: SET UP LOGGER NOW
-//! TODO: switch from f32 to f64 throughout the program
+//! TODO: switch from f64 to f64 throughout the program
 
 #![warn(clippy::pedantic, clippy::perf)]
 
@@ -42,8 +42,9 @@ impl GameState for RenderMap {
                         color = bracket_lib::color::RGB::from_f32(
                             0.,
                             0.,
-                            1.0 - Distance::distance(map.sea_level, h)
-                                / Distance::distance(map.min_height, map.sea_level),
+                            (1.0 - Distance::distance(map.sea_level, h)
+                                / Distance::distance(map.min_height, map.sea_level))
+                                as f32,
                         );
                         bg = RGB::named(bracket_lib::color::BLACK);
                         char = '~';
@@ -55,8 +56,8 @@ impl GameState for RenderMap {
                                 / Distance::distance(map.max_height, map.sea_level);
 
                         color = bracket_lib::color::RGB::from_f32(
-                            (1. * height).clamp(0.0001, f32::INFINITY),
-                            0.75 * height,
+                            (1. * height).clamp(0.0001, f64::INFINITY) as f32,
+                            0.75 * height as f32,
                             0.,
                         );
                         bg = RGB::named(bracket_lib::color::BLACK);
