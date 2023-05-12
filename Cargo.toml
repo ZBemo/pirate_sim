@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 bracket-lib = "^0.8"
 num-traits = "^0.2"
+log = "^0.4"
+env_logger = "^0.10"
 # specs = "~0.18"
 # specs-derive = "~0.4"
 

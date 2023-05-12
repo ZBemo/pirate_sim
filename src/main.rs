@@ -6,9 +6,11 @@
 mod helpers;
 mod worldgen;
 
+use bracket_lib::terminal::{BTerm, GameState, RGB};
 use std::error::Error;
 
-use bracket_lib::terminal::{BTerm, GameState, RGB};
+use log::{debug, trace, warn};
+
 use helpers::Distance;
 use helpers::RectArea;
 use worldgen::gen_map;
@@ -72,7 +74,7 @@ impl GameState for RenderMap {
             }
 
             if !self.has_ticked {
-                println!("{}", i);
+                debug!("drawn {} characters", i);
                 assert_eq!(i, map.height_map.len());
                 assert_eq!(i, map.size.height as usize * map.size.width as usize);
             }
@@ -108,6 +110,9 @@ fn render_map(hm: worldgen::Map, seed: usize) -> Result<(), Box<dyn Error + Send
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    env_logger::init();
+    warn!("HI");
+
     let seed = std::env::var("PS_SEED").map_or_else(
         |_| {
             std::time::SystemTime::now()
@@ -117,6 +122,8 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         },
         |s| s.parse().unwrap(),
     ) as u64;
+
+    trace!("Starting generating map with seed {}", seed);
 
     //TODO: make sure Xs and Ys align with width/height correctly throughout the program x = width, y = height
     let gen = worldgen::GenParam {

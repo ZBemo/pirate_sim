@@ -3,6 +3,7 @@
 
 mod visualize;
 
+use log::{debug, error, info, log_enabled, trace, warn, Level};
 use std::collections::HashSet;
 
 use bracket_lib::pathfinding::BaseMap;
@@ -92,6 +93,8 @@ pub fn gen_map(params: GenParam) -> Map {
     let mut min_height = height_map.iter().fold(f64::INFINITY, |a, &b| a.min(b));
     let mut max_height = height_map.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
+    // to do: ERODE MAP
+
     let ret = Map {
         size: params.world_size,
         height_map,
@@ -150,10 +153,12 @@ impl<'a> BaseMap for ErodeMap<'a> {
         .map(Point::from_tuple)
         .map(|o| o + p)
         {
-            println!("{}", {
-                let (l, r) = c_p.to_tuple();
-                format!("({},{})", l, r)
-            });
+            if (log_enabled!(Level::Debug)) {
+                debug!("{}", {
+                    let (l, r) = c_p.to_tuple();
+                    format!("({},{})", l, r)
+                });
+            }
 
             let h = self.base[self.point2d_to_index(c_p)];
             if h <= self.sea_lvl {
@@ -402,15 +407,21 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
 
         let percent_uw = percent_uw(&mid);
         if (percent_uw > highest_percent) {
-            println!(
+            trace!(
                 "decreasing uw%: {}\nmid: {}\nmax: {}\nmin: {}",
-                percent_uw, mid, max, min
+                percent_uw,
+                mid,
+                max,
+                min
             );
             max = mid + f64::EPSILON;
         } else if (percent_uw < lowest_percent) {
-            println!(
+            trace!(
                 "increasing uw%: {}\nmid: {}\nmax: {}\nmin: {}",
-                percent_uw, mid, max, min
+                percent_uw,
+                mid,
+                max,
+                min
             );
             min = mid - f64::EPSILON;
         } else {
@@ -419,7 +430,12 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
 
         //TODO: yeah, this is broken idc because it seems like it still ends up with a close enough
         // percent anyways
-        // assert!(min > max, "min gt max");
+
+        if (min > max) {
+            warn!("minimum of {} greater than maximum of {}", min, max);
+        }
+
+        assert!(min < max, "min gt max");
     }
 
     Err(())
