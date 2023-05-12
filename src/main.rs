@@ -12,7 +12,7 @@ use std::error::Error;
 use log::{debug, trace, warn};
 
 use helpers::Distance;
-use helpers::RectArea;
+use helpers::RectDimensions;
 use worldgen::gen_map;
 
 struct RenderMap {
@@ -134,10 +134,12 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         max_ports: 100,
         max_civilizations: 18,
 
-        world_size: RectArea::new(70, 40),
+        world_size: RectDimensions::new(70, 40),
     };
 
     let map = gen_map(gen);
+
+    //TODO: RENDER THREAD !!!!!! RENDER THREAD !!!!!!
 
     render_map(map, seed as usize)
 }

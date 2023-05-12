@@ -17,7 +17,7 @@ use bracket_lib::{
 
 use crate::helpers::{index_to_point, point_to_index, Distance};
 
-use super::helpers::RectArea;
+use super::helpers::RectDimensions;
 
 /// a river or body of water
 pub struct River {
@@ -27,7 +27,7 @@ pub struct River {
 
 /// a static map of a world with geological features
 pub struct Map {
-    pub size: RectArea,
+    pub size: RectDimensions,
     /// the level at which something goes into the sea/underwater
     pub sea_level: f64,
     pub min_height: f64,
@@ -57,7 +57,7 @@ pub struct GenParam {
     /// the maximum amount of civilizations to generate. 0-255 accepted, stick to 0-30
     pub max_civilizations: u8,
     /// the total size of the world
-    pub world_size: RectArea,
+    pub world_size: RectDimensions,
 }
 
 fn gen_region(param: GenParam) {}
@@ -109,7 +109,7 @@ pub fn gen_map(params: GenParam) -> Map {
 
 struct ErodeMap<'a> {
     base: &'a [f64],
-    area: RectArea,
+    area: RectDimensions,
     highest_height: f64,
     lowest_height: f64,
     sea_lvl: f64,
@@ -201,183 +201,25 @@ impl<'a> Algorithm2D for ErodeMap<'a> {
 }
 
 /// erode a map down
-/// maybe A* towards inland regions below sea level with higher heights weighted lower.
-/// erode out from there?
-fn erode(map: ErodeMap, area: &RectArea) -> Vec<f64> {
-    // first: randomly erode, so that water can move inland or outland
+/// returns a new heightmap
+fn erode(map: ErodeMap, area: &RectDimensions) -> Vec<f64> {
+    // to do first: random rain erosion tile-by tile
+    // glaciers?
+    // next, pathfind rivers, etc
+    // erode around rivers?
+    // run a little more erosion
 
-    let mut eroded_height_map: Vec<f64> = map.base.iter().copied().collect();
-    // initialize seed
-    let mut rng = RandomNumberGenerator::seeded(map.seed);
-    let erosion_weight = 0.05;
-    let is_land = |h: f64| h > map.sea_lvl;
+    // rain erosion
+    let passes_per_tile = 0.5; // 0.5 erosion passes per tile
+    let total_passes = { (map.total_size() as f64 * passes_per_tile).round() } as u64;
 
-    // make white noise for a very very loose approximation of erosion
-    // in the future maybe simulate rainfall
+    debug!(
+        "running {} rain erosion passes for {} total tiles",
+        total_passes,
+        map.total_size()
+    );
 
-    let white_noise = bracket_lib::noise::FastNoise::seeded(rng.next_u64());
-
-    for (i, h) in eroded_height_map.iter_mut().enumerate() {
-        // set x ,y
-        let y = i % map.area.height as usize;
-        let x = (i - y) / map.area.width as usize;
-
-        if (is_land(*h)) {
-            *h -= (white_noise.get_noise(x as f32, y as f32).abs() * erosion_weight) as f64;
-        }
-    }
-
-    // pathfind in from shores towards low points
-
-    let shores = HashSet::<(u8, u8)>::new();
-
-    // find sea shores.
-    let is_sea_map: Vec<_> = eroded_height_map.iter().map(|h| is_land(*h)).collect();
-    let mut shore_indices = HashSet::new();
-    let mut i = map.area.width as usize + 1;
-
-    loop {
-        let is_land = is_sea_map[i];
-        if is_land {
-            let (x, y) = index_to_point(i, map.area.width as usize, map.area.height as usize);
-            // loop over points around this point
-            for (x, y) in [
-                (x, y),
-                (x, y + 1),
-                (x + 1, y + 1),
-                (x - 1, y + 1),
-                (x - 1, y),
-                (x + 1, y),
-                (x, y - 1),
-                (x + 1, y - 1),
-                (x - 1, y - 1),
-            ] {
-                let p = is_sea_map[point_to_index(x, y, map.area.width as usize)];
-                if !p {
-                    shore_indices.insert(point_to_index(x, y, map.area.width as usize));
-                }
-            }
-        }
-
-        // update i
-        i += 1;
-        if i % map.area.width as usize == 0 {
-            i += map.area.width as usize + 1;
-        }
-        if i >= map.area.width as usize * map.area.height as usize {
-            break;
-        }
-    }
-
-    // find points below sea level inland, determine what is / isn't inland
-
-    let mut watersheds = Vec::<usize>::new();
-    let mut connected_to_corner = Vec::<bool>::new();
-    let (mut x, mut y) = (0usize, 0usize);
-    let mut x_margin = 0;
-    let mut y_margin = 0;
-
-    connected_to_corner.resize(is_sea_map.len(), false);
-    connected_to_corner.fill(false);
-
-    // check if (x,y) is connected to the edge of the map by sea.
-    // if it is, then it sets it to true in connected_to_corner
-    let mut check_connected = |x: usize, y: usize| {
-        if !is_sea_map[point_to_index(x, y, map.area.width as usize)] {
-            return;
-        }
-        if x == 0 || y == 0 || x == map.area.width as usize || y == map.area.height as usize {
-            // on the edge of map.
-            connected_to_corner[point_to_index(x, y, map.area.width as usize)] = true;
-        } else {
-            for (cx, cy) in [
-                (x - 1, y - 1),
-                (x, y - 1),
-                (x + 1, y - 1),
-                (x - 1, y),
-                (x, y),
-                (x + 1, y),
-                (x - 1, y + 1),
-                (x, y + 1),
-                (x + 1, y + 1),
-            ] {
-                if connected_to_corner[point_to_index(cx, cy, map.area.width as usize)] {
-                    connected_to_corner[point_to_index(x, y, map.area.width as usize)] = true;
-                }
-            }
-        }
-    };
-
-    // do left side
-    while x_margin < map.area.width as usize / 2 && y_margin < map.area.height as usize / 2 {
-        // top left corner + margin
-        x = x_margin;
-        y = y_margin;
-
-        // go right until you hit margin
-        while x <= map.area.width as usize - x_margin {
-            check_connected(x, y);
-            x += 1;
-        }
-        // go down until you hit margin
-        while y <= map.area.height as usize - y_margin {
-            check_connected(x, y);
-            y += 1
-        }
-        // go left until you hit margin
-        while x >= x_margin {
-            check_connected(x, y);
-            x -= 1;
-        }
-        // go up until you hit margin
-        while y >= y_margin {
-            check_connected(x, y);
-            y -= 1;
-        }
-
-        // increase margins
-        if (x_margin < map.area.width as usize / 2) {
-            x_margin += 1;
-        }
-        if (y_margin < map.area.height as usize / 2) {
-            y_margin += 1;
-        }
-    }
-
-    // for starting pathfinding, find a close shore -> pathfind in from there
-    // i is index, cornered is wether it is connected to corner and underwater is if it's under sea
-    // level
-    for (i, (&cornered, &underwater)) in connected_to_corner
-        .iter()
-        .zip(is_sea_map.iter())
-        .enumerate()
-    {
-        // if  both underwater, but not connected to corner, then we want to pathfind river(s) in
-        // towards it
-        if underwater && !cornered {
-            // pathfind to a shore
-            // no idea how to pick which shore... just use random number?
-
-            let mut dice = bracket_lib::random::RandomNumberGenerator::seeded(map.seed);
-
-            // roll until we find a tile that's sea
-            // might need a more efficient way to do this
-            let start_idx = loop {
-                let roll = dice.roll_dice(1, map.area.area() as i32);
-
-                if connected_to_corner[roll as usize] {
-                    break roll as usize;
-                }
-            };
-
-            let start_point =
-                index_to_point(start_idx, map.area.width as usize, map.area.height as usize);
-
-            // pathfind in
-
-            // mark adjacent tiles as sea
-        }
-    }
+    for _ in 0..total_passes {}
 
     todo!()
 }

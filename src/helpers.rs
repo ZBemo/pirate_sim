@@ -49,14 +49,14 @@ pub fn points_around<A: num_traits::Num + Copy>(x: A, y: A) -> [Point<A>; 8] {
 
 /// a rectangle with a height and width
 #[derive(Debug, Clone, Copy)]
-pub struct RectArea {
+pub struct RectDimensions {
     pub width: u8,
     pub height: u8,
 }
 
-impl RectArea {
+impl RectDimensions {
     pub fn new(width: u8, height: u8) -> Self {
-        RectArea { width, height }
+        RectDimensions { width, height }
     }
 
     pub fn area(&self) -> usize {
