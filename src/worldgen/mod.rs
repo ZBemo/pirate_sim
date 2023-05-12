@@ -403,13 +403,13 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
         let percent_uw = percent_uw(&mid);
         if (percent_uw > highest_percent) {
             println!(
-                "decreasing uw%: {}\nmid: {}\nmax: {}\nmin{}",
+                "decreasing uw%: {}\nmid: {}\nmax: {}\nmin: {}",
                 percent_uw, mid, max, min
             );
             max = mid + f64::EPSILON;
         } else if (percent_uw < lowest_percent) {
             println!(
-                "increasing uw%: {}\nmid: {}\nmax: {}\nmin{}",
+                "increasing uw%: {}\nmid: {}\nmax: {}\nmin: {}",
                 percent_uw, mid, max, min
             );
             min = mid - f64::EPSILON;
