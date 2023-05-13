@@ -8,12 +8,14 @@ mod worldgen;
 
 use bracket_lib::terminal::{BTerm, GameState, RGB};
 use std::error::Error;
+use std::sync::mpsc;
+use std::thread;
 
 use log::{debug, trace, warn};
 
 use helpers::Distance;
 use helpers::RectDimensions;
-use worldgen::gen_map;
+use worldgen::gen_base_map;
 
 struct RenderMap {
     map: worldgen::Map,
@@ -69,6 +71,21 @@ impl GameState for RenderMap {
 
                     ctx.set(x, y, color, bg, bracket_lib::prelude::to_cp437(char));
 
+                    if x as u32 > ctx.get_char_size().0 {
+                        warn!(
+                            "x of {} printing out of screen\nmax possible x is {}",
+                            x,
+                            ctx.get_char_size().0
+                        );
+                    }
+                    if y as u32 > ctx.get_char_size().1 {
+                        warn!(
+                            "y of {} printing out of screen\nmax possible y is {}",
+                            y,
+                            ctx.get_char_size().1
+                        );
+                    }
+
                     i += 1;
                 }
             }
@@ -98,9 +115,11 @@ impl RenderMap {
 //TODO: remove later
 #[allow(unused)]
 fn render_map(hm: worldgen::Map, seed: usize) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let wanted_x = hm.size.width;
+    let wanted_y = hm.size.height + 2;
+
     // generate a screen with dimensions large enough to display the map
-    let ctx = bracket_lib::terminal::BTermBuilder::simple80x50()
-        .with_fitscreen(true)
+    let ctx = bracket_lib::terminal::BTermBuilder::simple(wanted_x, wanted_y)?
         .with_title("Generated Map")
         .build()?;
 
@@ -111,7 +130,6 @@ fn render_map(hm: worldgen::Map, seed: usize) -> Result<(), Box<dyn Error + Send
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     env_logger::init();
-    warn!("HI");
 
     let seed = std::env::var("PS_SEED").map_or_else(
         |_| {
@@ -126,20 +144,37 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     trace!("Starting generating map with seed {}", seed);
 
     //TODO: make sure Xs and Ys align with width/height correctly throughout the program x = width, y = height
+    //TODO: feature to regenerate with new seed graphically?
     let gen = worldgen::GenParam {
         seed,
         poles: worldgen::Poles::Random,
-        // ~70% is 178/255
+        // 178/255 around 70%
         target_water: 178,
         max_ports: 100,
         max_civilizations: 18,
 
-        world_size: RectDimensions::new(70, 40),
+        world_size: RectDimensions::new(100, 100),
     };
 
-    let map = gen_map(gen);
+    let map = gen_base_map(gen);
 
     //TODO: RENDER THREAD !!!!!! RENDER THREAD !!!!!!
+
+    // we want to gen map -> render it while other thread works on erosion, etc
+    // when erosion done, close thread and render newly eroded map
+    // continue in similar fashion for other stages of world gen
+    // although this structure works well for worldgen, for actual gameplay it would make sense to
+    // have a pair of channels, with one sending input data to a "working" thread, and another
+    // sending render data to a "render" thread, allowing rendering and workign to be done nearly
+    // independently of each other
+
+    let (tx, rx) = mpsc::channel::<worldgen::Map>();
+    let new_map = map.clone();
+
+    thread::spawn(move || {
+        // run erosion code and send new map back to rx
+        todo!();
+    });
 
     render_map(map, seed as usize)
 }

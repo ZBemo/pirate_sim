@@ -20,12 +20,14 @@ use crate::helpers::{index_to_point, point_to_index, Distance};
 use super::helpers::RectDimensions;
 
 /// a river or body of water
+#[derive(Debug, Clone)]
 pub struct River {
     // which tiles are covered by the water form
     covered_tiles: Vec<u32>,
 }
 
 /// a static map of a world with geological features
+#[derive(Debug, Clone)]
 pub struct Map {
     pub size: RectDimensions,
     /// the level at which something goes into the sea/underwater
@@ -62,7 +64,7 @@ pub struct GenParam {
 
 fn gen_region(param: GenParam) {}
 
-pub fn gen_map(params: GenParam) -> Map {
+pub fn gen_base_map(params: GenParam) -> Map {
     let (h, w) = (params.world_size.height, params.world_size.width);
     // let map = [[0f64; std::u8::MAX as usize]; std::u8::MAX as usize];
     let mut rng = RandomNumberGenerator::seeded(params.seed);
@@ -117,10 +119,10 @@ struct ErodeMap<'a> {
 }
 
 impl<'a> ErodeMap<'a> {
-    fn is_underwater(&self, height: f64) -> bool {
+    pub fn is_underwater(&self, height: f64) -> bool {
         height <= self.sea_lvl
     }
-    fn total_size(&self) -> u32 {
+    pub fn total_size(&self) -> u32 {
         self.area.width as u32 * self.area.height as u32
     }
 }
@@ -202,12 +204,22 @@ impl<'a> Algorithm2D for ErodeMap<'a> {
 
 /// erode a map down
 /// returns a new heightmap
-fn erode(map: ErodeMap, area: &RectDimensions) -> Vec<f64> {
+fn erode(
+    map: ErodeMap,
+    area: &RectDimensions,
+    master_generator: &mut RandomNumberGenerator,
+) -> Vec<f64> {
+    // most importantly, seeding infrastructure is not in place
+
+    let mut generator = RandomNumberGenerator::seeded(master_generator.next_u64());
+
     // to do first: random rain erosion tile-by tile
     // glaciers?
     // next, pathfind rivers, etc
     // erode around rivers?
     // run a little more erosion
+
+    let mut ret_hmap = map.base.clone();
 
     // rain erosion
     let passes_per_tile = 0.5; // 0.5 erosion passes per tile
@@ -219,7 +231,9 @@ fn erode(map: ErodeMap, area: &RectDimensions) -> Vec<f64> {
         map.total_size()
     );
 
-    for _ in 0..total_passes {}
+    for _ in 0..total_passes {
+        // choose a random tile
+    }
 
     todo!()
 }
