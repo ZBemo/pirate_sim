@@ -1,0 +1,13 @@
+// NOT IN ORDER
+short term: 
+ - sort out render and work thread (see src/main:163)
+ - implement a nicer render function with general warnings for things like printing out of bounds
+ - finish erosion (see src/worldgen/mod.rs:207)
+ - make worldgen module prettier, probably bring some things out of worldgen/mod.rs
+
+ long term:
+ - menu system
+ - saving worlds
+ - gameplay
+ - history generation
+ 
