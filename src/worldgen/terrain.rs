@@ -5,7 +5,7 @@ use bracket_lib::{
 };
 use log::{debug, log_enabled, trace, warn, Level};
 
-use crate::helpers::{Distance, RectDimensions};
+use crate::helpers::{Distance, RectDimension};
 
 use super::GenParam;
 
@@ -20,7 +20,7 @@ pub struct River {
 /// a static map of a world and its terrain
 #[derive(Debug, Clone)]
 pub struct Map {
-    pub size: RectDimensions,
+    pub size: RectDimension,
     /// the level at which something goes into the sea/underwater
     pub sea_level: f64,
     pub min_height: f64,
@@ -88,7 +88,7 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
     Err(())
 }
 
-pub fn gen_base_map(params: GenParam, rng: RandomNumberGenerator) -> Map {
+pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> Map {
     let (h, w) = (params.world_size.height, params.world_size.width);
     // let map = [[0f64; std::u8::MAX as usize]; std::u8::MAX as usize];
     let mut noise = FastNoise::seeded(rng.next_u64());
@@ -134,7 +134,7 @@ pub fn gen_base_map(params: GenParam, rng: RandomNumberGenerator) -> Map {
 
 struct ErodeMap<'a> {
     base: &'a [f64],
-    area: RectDimensions,
+    area: RectDimension,
     highest_height: f64,
     lowest_height: f64,
     sea_lvl: f64,
@@ -229,7 +229,7 @@ impl<'a> Algorithm2D for ErodeMap<'a> {
 /// returns a new heightmap
 fn erode(
     map: ErodeMap,
-    area: &RectDimensions,
+    area: &RectDimension,
     master_generator: &mut RandomNumberGenerator,
 ) -> Vec<f64> {
     // most importantly, seeding infrastructure is not in place

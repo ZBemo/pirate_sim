@@ -18,7 +18,7 @@ use bracket_lib::{
 
 use crate::helpers::{index_to_point, point_to_index, Distance};
 
-use super::helpers::RectDimensions;
+use super::helpers::RectDimension;
 
 pub use terrain::Map as TerrainMap;
 
@@ -44,14 +44,14 @@ pub struct GenParam {
     /// the maximum amount of civilizations to generate. 0-255 accepted, stick to 0-30
     pub max_civilizations: u8,
     /// the total size of the world
-    pub world_size: RectDimensions,
+    pub world_size: RectDimension,
 }
 
 /// a struct containing the information necessary to render a world
-struct RenderWorld {}
+pub struct RenderWorld {}
 
 // todo: make this more interesting later
-struct FullWorld {}
+pub struct FullWorld {}
 
 /// A function to generate a whole world, starting with terrain and geography and going all the way
 /// to history and settlements
@@ -60,7 +60,7 @@ struct FullWorld {}
 ///
 /// this function coordinates the generation of worlds and the random number generation involved,
 /// allowing us to make deterministic worlds more easily.
-fn gen_full_world(params: GenParam, render: Option<Receiver<RenderWorld>>) -> FullWorld {
+pub fn gen_full_world(params: GenParam, render: Option<Receiver<RenderWorld>>) -> FullWorld {
     let mut rng = RandomNumberGenerator::seeded(params.seed);
 
     let base_map = terrain::gen_base_map(params, rng);

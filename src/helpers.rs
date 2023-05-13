@@ -21,11 +21,21 @@ impl<A: num_traits::Num + PartialOrd> Distance for A {
 /// Takes an index, the width and height of a rectangular array, and converts from the i to an x and y location
 ///
 /// return is (x,y)
+/// this may be bugged. either this or [point_to_index]
 pub fn index_to_point(i: usize, w: usize, h: usize) -> Point<usize> {
-    ((i - (i % h)) / w, i % h)
+    // x is i modulo width
+    // y is (i - x) / width
+    //
+
+    (i % w, (i - (i % w)) / h)
+    // let x = i % h;
+
+    // (x, (i - x) / w)
 }
 
 /// takes an x, a y, and a width and converts from x and y to the index of a rectangular array
+///
+/// this may be bugged. either this or [index_to_point]
 pub fn point_to_index(x: usize, y: usize, w: usize) -> usize {
     x * w + y
 }
@@ -49,14 +59,14 @@ pub fn points_around<A: num_traits::Num + Copy>(x: A, y: A) -> [Point<A>; 8] {
 
 /// a rectangle with a height and width
 #[derive(Debug, Clone, Copy)]
-pub struct RectDimensions {
+pub struct RectDimension {
     pub width: u8,
     pub height: u8,
 }
 
-impl RectDimensions {
+impl RectDimension {
     pub fn new(width: u8, height: u8) -> Self {
-        RectDimensions { width, height }
+        RectDimension { width, height }
     }
 
     pub fn area(&self) -> usize {

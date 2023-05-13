@@ -4,129 +4,16 @@
 #![warn(clippy::pedantic, clippy::perf)]
 
 mod helpers;
+mod render;
 mod worldgen;
 
-use bracket_lib::terminal::{BTerm, GameState, RGB};
-use std::error::Error;
 use std::sync::mpsc;
 use std::thread;
+use std::{error::Error, time::UNIX_EPOCH};
 
-use log::{debug, trace, warn};
+use log::{trace, warn};
 
-use helpers::Distance;
-use helpers::RectDimensions;
-use worldgen::gen_base_map;
-
-struct RenderMap {
-    map: worldgen::Map,
-    /// use this to decide whether to debug or not, as map as static there's no need to debug on every tick
-    has_ticked: bool,
-    seed: usize,
-}
-
-impl GameState for RenderMap {
-    fn tick(&mut self, ctx: &mut BTerm) {
-        if !self.has_ticked {
-            ctx.cls();
-
-            let map = &self.map;
-
-            //TODO: make sure this is covering all of map.len()
-            let mut i = 0;
-            for x in 1..=map.size.width {
-                for y in 1..=map.size.height {
-                    let color;
-                    let bg;
-                    let char;
-                    let h = map.height_map[i];
-                    if h <= map.sea_level {
-                        //TODO: calculate so that darkness is relative to distance of sea level and min
-                        // for example 1.0 - h.abs() / distance(min,sea_level)
-
-                        color = bracket_lib::color::RGB::from_f32(
-                            0.,
-                            0.,
-                            (1.0 - Distance::distance(map.sea_level, h)
-                                / Distance::distance(map.min_height, map.sea_level))
-                                as f32,
-                        );
-                        bg = RGB::named(bracket_lib::color::BLACK);
-                        char = '~';
-
-                        // underwater
-                    } else {
-                        let height = 1.0
-                            - Distance::distance(map.sea_level, h)
-                                / Distance::distance(map.max_height, map.sea_level);
-
-                        color = bracket_lib::color::RGB::from_f32(
-                            (1. * height).clamp(0.0001, f64::INFINITY) as f32,
-                            0.75 * height as f32,
-                            0.,
-                        );
-                        bg = RGB::named(bracket_lib::color::BLACK);
-                        char = '^';
-                        // on land
-                    }
-
-                    ctx.set(x, y, color, bg, bracket_lib::prelude::to_cp437(char));
-
-                    if x as u32 > ctx.get_char_size().0 {
-                        warn!(
-                            "x of {} printing out of screen\nmax possible x is {}",
-                            x,
-                            ctx.get_char_size().0
-                        );
-                    }
-                    if y as u32 > ctx.get_char_size().1 {
-                        warn!(
-                            "y of {} printing out of screen\nmax possible y is {}",
-                            y,
-                            ctx.get_char_size().1
-                        );
-                    }
-
-                    i += 1;
-                }
-            }
-
-            if !self.has_ticked {
-                debug!("drawn {} characters", i);
-                assert_eq!(i, map.height_map.len());
-                assert_eq!(i, map.size.height as usize * map.size.width as usize);
-            }
-
-            ctx.print(0, map.size.height + 1, format!("seed: {}", self.seed));
-            self.has_ticked = true;
-        }
-    }
-}
-
-impl RenderMap {
-    pub fn new(hm: worldgen::Map, seed: usize) -> Self {
-        RenderMap {
-            map: hm,
-            has_ticked: false,
-            seed,
-        }
-    }
-}
-
-//TODO: remove later
-#[allow(unused)]
-fn render_map(hm: worldgen::Map, seed: usize) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let wanted_x = hm.size.width;
-    let wanted_y = hm.size.height + 2;
-
-    // generate a screen with dimensions large enough to display the map
-    let ctx = bracket_lib::terminal::BTermBuilder::simple(wanted_x, wanted_y)?
-        .with_title("Generated Map")
-        .build()?;
-
-    let gs = RenderMap::new(hm, seed);
-
-    bracket_lib::prelude::main_loop(ctx, gs)
-}
+use helpers::RectDimension;
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     env_logger::init();
@@ -141,7 +28,9 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         |s| s.parse().unwrap(),
     ) as u64;
 
-    trace!("Starting generating map with seed {}", seed);
+    trace!("Starting render test");
+
+    return render_test();
 
     //TODO: make sure Xs and Ys align with width/height correctly throughout the program x = width, y = height
     //TODO: feature to regenerate with new seed graphically?
@@ -149,14 +38,12 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         seed,
         poles: worldgen::Poles::Random,
         // 178/255 around 70%
-        target_water: 178,
+        target_water: 200,
         max_ports: 100,
         max_civilizations: 18,
 
-        world_size: RectDimensions::new(100, 100),
+        world_size: RectDimension::new(100, 100),
     };
-
-    let map = gen_base_map(gen);
 
     //TODO: RENDER THREAD !!!!!! RENDER THREAD !!!!!!
 
@@ -168,13 +55,54 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // sending render data to a "render" thread, allowing rendering and workign to be done nearly
     // independently of each other
 
-    let (tx, rx) = mpsc::channel::<worldgen::Map>();
-    let new_map = map.clone();
+    Ok(())
+}
+
+/// a test function to use while architecting renderer
+fn render_test() -> Result<(), Box<dyn Error + Send + Sync>> {
+    use render::*;
+
+    let dimensions = RectDimension::new(30, 10);
+    let ctx = bracket_lib::terminal::BTermBuilder::simple(dimensions.width, dimensions.height)?
+        .with_title("Render Test!")
+        .build()?;
+
+    let (render_s, render_r) = mpsc::channel::<RenderPacket>();
+    let (input_s, input_r) = mpsc::channel::<InputPacket>();
+
+    let renderer = Renderer::new_blank(render_r, input_s, dimensions);
 
     thread::spawn(move || {
-        // run erosion code and send new map back to rx
-        todo!();
+        let mut running = true;
+
+        while running {
+            if let Ok(input) = input_r.try_recv() {
+                match input {
+                    InputPacket::Key(_) => {
+                        let message = format!(
+                            "Last update at time {}",
+                            std::time::SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs()
+                        );
+
+                        trace!("{}", message);
+
+                        let to_display = render::string_to_frame(message);
+
+                        render_s.send(RenderPacket::NewFrame(to_display)).unwrap();
+                    }
+                    InputPacket::LoopClosed => {
+                        trace!("window has exited, closing loop");
+                        running = false;
+                    }
+                }
+            }
+        }
     });
 
-    render_map(map, seed as usize)
+    renderer.start_render(ctx).unwrap();
+
+    Ok(())
 }
