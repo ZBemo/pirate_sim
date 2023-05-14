@@ -7,7 +7,7 @@ use log::{debug, log_enabled, trace, warn, Level};
 
 use crate::helpers::{Distance, RectDimension};
 
-use super::GenParam;
+use super::{FullWorld, GenParam};
 
 /// a river or body of water
 /// TODO: better format, use lines?
@@ -20,7 +20,7 @@ pub struct River {
 /// a static map of a world and its terrain
 #[derive(Debug, Clone)]
 pub struct Map {
-    pub size: RectDimension,
+    pub dimensions: RectDimension,
     /// the level at which something goes into the sea/underwater
     pub sea_level: f64,
     pub min_height: f64,
@@ -88,7 +88,7 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
     Err(())
 }
 
-pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> Map {
+pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> FullWorld {
     let (h, w) = (params.world_size.height, params.world_size.width);
     // let map = [[0f64; std::u8::MAX as usize]; std::u8::MAX as usize];
     let mut noise = FastNoise::seeded(rng.next_u64());
@@ -121,7 +121,7 @@ pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> Map {
     // to do: ERODE MAP
 
     let ret = Map {
-        size: params.world_size,
+        dimensions: params.world_size,
         height_map,
         rivers: Vec::new(),
         sea_level,
@@ -129,7 +129,10 @@ pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> Map {
         min_height,
     };
 
-    return ret;
+    return FullWorld {
+        terrain: ret,
+        rivers: Vec::new(),
+    };
 }
 
 struct ErodeMap<'a> {

@@ -15,6 +15,8 @@ use log::{trace, warn};
 
 use helpers::RectDimension;
 
+use crate::render::{InputPacket, RenderPacket, Renderer};
+
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     env_logger::init();
 
@@ -30,8 +32,6 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     trace!("Starting render test");
 
-    return render_test();
-
     //TODO: make sure Xs and Ys align with width/height correctly throughout the program x = width, y = height
     //TODO: feature to regenerate with new seed graphically?
     let gen = worldgen::GenParam {
@@ -42,18 +42,25 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         max_ports: 100,
         max_civilizations: 18,
 
-        world_size: RectDimension::new(100, 100),
+        world_size: RectDimension::new(70, 70),
     };
 
-    //TODO: RENDER THREAD !!!!!! RENDER THREAD !!!!!!
+    let dimensions = RectDimension::new(80, 80);
+    let ctx = bracket_lib::terminal::BTermBuilder::simple(dimensions.width, dimensions.height)?
+        .with_title("Pirate Sim World Gen")
+        .build()?;
 
-    // we want to gen map -> render it while other thread works on erosion, etc
-    // when erosion done, close thread and render newly eroded map
-    // continue in similar fashion for other stages of world gen
-    // although this structure works well for worldgen, for actual gameplay it would make sense to
-    // have a pair of channels, with one sending input data to a "working" thread, and another
-    // sending render data to a "render" thread, allowing rendering and workign to be done nearly
-    // independently of each other
+    let (render_s, render_r) = mpsc::channel::<RenderPacket>();
+    let (input_s, input_r) = mpsc::channel::<InputPacket>();
+
+    let renderer = Renderer::new_blank(render_r, input_s, dimensions);
+
+    // TODO: set up render thread, send receiver and sender to renderer
+    thread::spawn(move || {
+        worldgen::gen_full_world(gen, Some((render_s, input_r)));
+    });
+
+    renderer.start_render(ctx).unwrap();
 
     Ok(())
 }

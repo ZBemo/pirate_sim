@@ -9,16 +9,25 @@ use std::{
 };
 
 use bracket_lib::terminal::{
-    main_loop, to_cp437, BTerm, ColorPair, GameState, VirtualKeyCode, BLACK, WHITE,
+    main_loop, to_cp437, BTerm, ColorPair, GameState, VirtualKeyCode, BLACK, RGBA, WHITE,
 };
-use log::{debug, trace, warn};
+use log::{debug, warn};
 
-use crate::helpers::{index_to_point, point_to_index, RectDimension};
+use crate::helpers::{index_to_point, RectDimension};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tile {
     colors: ColorPair,
     char: char,
+}
+
+impl Tile {
+    pub fn new<FG: Into<RGBA>, BG: Into<RGBA>>(char: char, fg: FG, bg: BG) -> Self {
+        Tile {
+            colors: ColorPair::new(fg, bg),
+            char,
+        }
+    }
 }
 
 /// a packet to the renderer telling it what to render
@@ -82,12 +91,12 @@ impl GameState for Renderer {
     // the main loop of the renderer
     fn tick(&mut self, ctx: &mut bracket_lib::terminal::BTerm) {
         if ctx.quitting {
-            self.sender.send(InputPacket::LoopClosed);
+            self.sender.send(InputPacket::LoopClosed).unwrap();
         }
 
         // a key is pressed?
         if let Some(key) = ctx.key {
-            self.sender.send(InputPacket::Key(key));
+            self.sender.send(InputPacket::Key(key)).unwrap();
         };
 
         // a new frame has been requested
@@ -122,12 +131,7 @@ impl GameState for Renderer {
             );
 
             for p in 0..self.cur_frame.to_render.len() {
-                let (x, y) = index_to_point(
-                    p,
-                    cf_dimensions.width as usize,
-                    cf_dimensions.height as usize,
-                );
-
+                let (x, y) = cf_dimensions.index_to_point(p);
                 // don't keep printing to empty screen
                 // this will break on resizing
                 if x as u32 > ctx.get_char_size().0 {
