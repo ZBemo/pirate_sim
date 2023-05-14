@@ -105,10 +105,15 @@ fn render_world(world: &FullWorld, sender: &mut Sender<RenderPacket>) -> () {
 
     // send tilemap
 
-    sender.send(RenderPacket::NewFrame(Frame {
+    match sender.send(RenderPacket::NewFrame(Frame {
         dimensions: world.terrain.dimensions,
         to_render: tiles,
-    }));
+    })) {
+        Ok(_) => {}
+        Err(e) => {
+            error!("Unable to send message to render thread. Error: {}", e);
+        }
+    };
 
     // todo!()
 }
