@@ -96,7 +96,15 @@ impl GameState for Renderer {
 
         // a key is pressed?
         if let Some(key) = ctx.key {
-            self.sender.send(InputPacket::Key(key)).unwrap();
+            match self.sender.send(InputPacket::Key(key)) {
+                Ok(_) => {}
+                Err(e) => {
+                    debug!(
+                        "Unable to send packet key from render thread to work thread. error: {}. This may only be an issue if your game is unresponsive.",
+                        e.to_string()
+                    );
+                }
+            };
         };
 
         // a new frame has been requested
