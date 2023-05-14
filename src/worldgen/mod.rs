@@ -57,6 +57,22 @@ pub struct FullWorld {
     // ...
 }
 
+impl FullWorld {
+    // mainly getters for various sub-elements
+    pub fn dimensions(&self) -> RectDimension {
+        self.terrain.dimensions
+    }
+    pub fn num_tiles(&self) -> usize {
+        self.terrain.height_map.len()
+    }
+    pub fn max_height(&self) -> f64 {
+        self.terrain.max_height
+    }
+    pub fn min_height(&self) -> f64 {
+        self.terrain.min_height
+    }
+}
+
 fn render_world(world: &FullWorld, sender: &mut Sender<RenderPacket>) -> () {
     const MOUNTAIN_CHAR: char = '^';
     const LAND_CHAR: char = '-';
@@ -118,6 +134,12 @@ fn render_world(world: &FullWorld, sender: &mut Sender<RenderPacket>) -> () {
     // todo!()
 }
 
+/// the mutable context necessary for all world generation functions
+struct GenContext {
+    rng: RandomNumberGenerator,
+    params: GenParam,
+}
+
 /// A function to generate a whole world, starting with terrain and geography and going all the way
 /// to history and settlements
 ///
@@ -132,13 +154,15 @@ pub fn gen_full_world(
     let mut rng = RandomNumberGenerator::seeded(params.seed);
 
     // generate the base terrain of the map
-    let base_map = terrain::gen_base_map(params, rng);
+    let base_map = terrain::gen_base_map(&params, &mut rng);
 
     // render base map
     match &mut channels {
         Some((sender, _)) => render_world(&base_map, sender),
         None => {}
     }
+
+    let eroded_map = terrain::erode(&base_map, &mut rng);
 
     todo!();
 }

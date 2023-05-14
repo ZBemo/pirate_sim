@@ -29,11 +29,11 @@ pub struct Map {
     pub rivers: Vec<River>,
 }
 
-/// Does a binary search of sea levels starting from min + max / 2 until sea level is within 1 / height_map.len() of wanted_percent.
-///
-/// The 1 / height_map.len() variance is allowed in order to accommodate for lower resolution maps where you might not be able to get exactly the desired percent.
+/// Does a binary search of sea levels until amount of world covered by sea is withing a reasonable distance from `wanted_percent`
 ///
 /// Should only error if a NaN is present in the input, or if the algorithm is bugged.
+/// allows variance of `1./ height_map.len()` in order to ensure that the wanted percent is
+/// actually achievable
 fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> {
     let mut min = height_map.iter().fold(f64::INFINITY, |a, &b| a.min(b));
     let mut max = height_map.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
@@ -55,22 +55,26 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
         let percent_uw = percent_uw(&mid);
         if (percent_uw > highest_percent) {
             trace!(
-                "decreasing uw%: {}\nmid: {}\nmax: {}\nmin: {}",
+                "decreasing uw%: {}\nmid: {}\nmax: {}\nmin: {}\nwanted percent: {}-{}",
                 percent_uw,
                 mid,
                 max,
-                min
+                min,
+                lowest_percent,
+                highest_percent
             );
-            max = mid + f64::EPSILON;
+            max = mid;
         } else if (percent_uw < lowest_percent) {
             trace!(
-                "increasing uw%: {}\nmid: {}\nmax: {}\nmin: {}",
+                "increasing uw%: {}\nmid: {}\nmax: {}\nmin: {}\nwanted percent: {}-{}",
                 percent_uw,
                 mid,
                 max,
-                min
+                min,
+                lowest_percent,
+                highest_percent
             );
-            min = mid - f64::EPSILON;
+            min = mid;
         } else {
             return Ok(mid);
         }
@@ -88,9 +92,8 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
     Err(())
 }
 
-pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> FullWorld {
+pub fn gen_base_map(params: &GenParam, rng: &mut RandomNumberGenerator) -> FullWorld {
     let (h, w) = (params.world_size.height, params.world_size.width);
-    // let map = [[0f64; std::u8::MAX as usize]; std::u8::MAX as usize];
     let mut noise = FastNoise::seeded(rng.next_u64());
 
     noise.set_noise_type(NoiseType::PerlinFractal);
@@ -102,6 +105,8 @@ pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> FullWor
 
     //TODO: there's got to be a more elegant way to do all this
     let mut height_map = Vec::new();
+    // less allocation /shrug
+    height_map.reserve_exact(h as usize * w as usize);
 
     for y in 0..w {
         for x in 0..h {
@@ -113,12 +118,10 @@ pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> FullWor
         }
     }
 
-    let sea_level = decide_sea_level(&*height_map, (params.target_water as f64) / 255.).unwrap();
+    let sea_level = decide_sea_level(&height_map, (params.target_water as f64) / 255.).unwrap();
 
     let mut min_height = height_map.iter().fold(f64::INFINITY, |a, &b| a.min(b));
     let mut max_height = height_map.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-
-    // to do: ERODE MAP
 
     let ret = Map {
         dimensions: params.world_size,
@@ -129,112 +132,15 @@ pub fn gen_base_map(params: GenParam, mut rng: RandomNumberGenerator) -> FullWor
         min_height,
     };
 
-    return FullWorld {
+    FullWorld {
         terrain: ret,
         rivers: Vec::new(),
-    };
-}
-
-struct ErodeMap<'a> {
-    base: &'a [f64],
-    area: RectDimension,
-    highest_height: f64,
-    lowest_height: f64,
-    sea_lvl: f64,
-    seed: u64,
-}
-
-impl<'a> ErodeMap<'a> {
-    pub fn is_underwater(&self, height: f64) -> bool {
-        height <= self.sea_lvl
-    }
-    pub fn total_size(&self) -> u32 {
-        self.area.width as u32 * self.area.height as u32
-    }
-}
-
-impl<'a> BaseMap for ErodeMap<'a> {
-    fn is_opaque(&self, _idx: usize) -> bool {
-        false
-    }
-
-    fn get_available_exits(
-        &self,
-        idx: usize,
-    ) -> bracket_lib::prelude::SmallVec<[(usize, f32); 10]> {
-        let mut ret = bracket_lib::prelude::SmallVec::<[(usize, f32); 10]>::new();
-
-        let p = self.index_to_point2d(idx);
-        let p_h = self.base[idx];
-
-        for c_p in [
-            (0, 0),
-            (1, 0),
-            (-1, 0),
-            (1, 1),
-            (-1, 1),
-            (1, -1),
-            (0, 1),
-            (0, -1),
-            (-1, -1),
-        ]
-        .map(Point::from_tuple)
-        .map(|o| o + p)
-        {
-            if (log_enabled!(Level::Debug)) {
-                debug!("{}", {
-                    let (l, r) = c_p.to_tuple();
-                    format!("({},{})", l, r)
-                });
-            }
-
-            let h = self.base[self.point2d_to_index(c_p)];
-            if h <= self.sea_lvl {
-                // rivers don't flow underwater
-                continue;
-            }
-
-            // don't consider if it increases too much
-            if h > p_h
-                && Distance::distance(h, p_h)
-                    < 3. / Distance::distance(self.sea_lvl, self.highest_height)
-            {
-                continue;
-            }
-
-            //it has passed all criteria, find its weight and add it as an exit
-
-            ret.push((
-                self.point2d_to_index(c_p),
-                (Distance::distance(p_h, h) / Distance::distance(self.sea_lvl, self.highest_height))
-                    as f32,
-            ));
-        }
-
-        ret
-    }
-
-    fn get_pathing_distance(&self, idx1: usize, idx2: usize) -> f32 {
-        let p1 = self.index_to_point2d(idx1);
-        let p2 = self.index_to_point2d(idx2);
-
-        bracket_lib::geometry::DistanceAlg::Diagonal.distance2d(p1, p2)
-    }
-}
-
-impl<'a> Algorithm2D for ErodeMap<'a> {
-    fn dimensions(&self) -> bracket_lib::terminal::Point {
-        bracket_lib::terminal::Point::new(self.area.width, self.area.height)
     }
 }
 
 /// erode a map down
-/// returns a new heightmap
-fn erode(
-    map: ErodeMap,
-    area: &RectDimension,
-    master_generator: &mut RandomNumberGenerator,
-) -> Vec<f64> {
+/// updates heightmap & rivers(?)
+pub fn erode(map: &FullWorld, master_generator: &mut RandomNumberGenerator) -> Vec<f64> {
     // most importantly, seeding infrastructure is not in place
 
     let mut generator = RandomNumberGenerator::seeded(master_generator.next_u64());
@@ -245,16 +151,16 @@ fn erode(
     // erode around rivers?
     // run a little more erosion
 
-    let mut ret_hmap = map.base.clone();
+    let mut ret_hmap = map.terrain.height_map.clone();
 
     // rain erosion
     let passes_per_tile = 0.5; // 0.5 erosion passes per tile
-    let total_passes = { (map.total_size() as f64 * passes_per_tile).round() } as u64;
+    let total_passes = { (map.terrain.height_map.len() as f64 * passes_per_tile).round() } as u64;
 
     debug!(
         "running {} rain erosion passes for {} total tiles",
         total_passes,
-        map.total_size()
+        map.terrain.height_map.len()
     );
 
     for _ in 0..total_passes {

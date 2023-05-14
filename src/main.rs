@@ -1,7 +1,9 @@
 //! TODO: SET UP LOGGER NOW
-//! TODO: switch from f64 to f64 throughout the program
+//! TODO: switch from f32 to f64 throughout the program
 
 #![warn(clippy::pedantic, clippy::perf)]
+// we do not target 32 bit
+#![allow(clippy::cast_possible_truncation)]
 
 mod helpers;
 mod render;
@@ -66,8 +68,9 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 /// a test function to use while architecting renderer
+#[allow(unused)]
 fn render_test() -> Result<(), Box<dyn Error + Send + Sync>> {
-    use render::*;
+    use render::{InputPacket, RenderPacket, Renderer};
 
     let dimensions = RectDimension::new(30, 10);
     let ctx = bracket_lib::terminal::BTermBuilder::simple(dimensions.width, dimensions.height)?

@@ -13,7 +13,7 @@ use bracket_lib::terminal::{
 };
 use log::{debug, warn};
 
-use crate::helpers::{index_to_point, RectDimension};
+use crate::helpers::RectDimension;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tile {
@@ -34,6 +34,7 @@ impl Tile {
 /// might have to change to a trait
 pub enum RenderPacket {
     NewFrame(Frame),
+    #[allow(unused)]
     ChangeSize(RectDimension),
 }
 
@@ -183,11 +184,6 @@ impl Renderer {
             cur_frame: Frame::new(dimensions),
             should_rerender: false,
         }
-    }
-
-    /// spawn a work thread seperate from the main thread
-    pub fn spawn_window_then_do_work() -> () {
-        todo!()
     }
 
     /// meant to be spawned in seperate render thread
