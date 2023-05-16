@@ -1,9 +1,11 @@
 // ONLY ROUGHLY IN ORDER
 short term: 
+ - change InputPacket & RenderPacket to better names
+   - RenderTick & RenderUpdate 
+   - WorkPacket (from work) & RenderPacket (from renderer) or vice versa
  - fully architect render.rs
  - make worldgen module prettier, probably bring some things out of worldgen/mod.rs
  - sort out render and work thread (see src/main:163)
- - implement a nicer render function with general warnings for things like printing out of bounds
  - give worldgen more control over rendering
  - finish erosion (see src/worldgen/mod.rs:207)
 
@@ -11,6 +13,8 @@ short term:
  - switch from bracket io to brevy or sdl io (sdl might be easier) 
  - menu system
  - saving worlds
- - gameplay
+ - rpg gameplay
  - history generation
+ - fix visibility 
+ - camera system with mutex, or something similar 
  
