@@ -7,7 +7,7 @@ use log::{debug, log_enabled, trace, warn, Level};
 
 use crate::helpers::{Distance, RectDimension};
 
-use super::{FullWorld, GenParam};
+use super::{FullWorld, GenContext, GenParam, Pole};
 
 /// a river or body of water
 /// TODO: better format, use lines?
@@ -92,7 +92,9 @@ fn decide_sea_level(height_map: &[f64], wanted_percent: f64) -> Result<f64, ()> 
     Err(())
 }
 
-pub fn gen_base_map(params: &GenParam, rng: &mut RandomNumberGenerator) -> FullWorld {
+pub fn gen_base_map<'a, 'b>(context: &mut GenContext) -> FullWorld {
+    let params = context.params;
+    let mut rng = &mut context.rng;
     let (h, w) = (params.world_size.height, params.world_size.width);
     let mut noise = FastNoise::seeded(rng.next_u64());
 
@@ -135,6 +137,7 @@ pub fn gen_base_map(params: &GenParam, rng: &mut RandomNumberGenerator) -> FullW
     FullWorld {
         terrain: ret,
         rivers: Vec::new(),
+        pole: Pole::new(),
     }
 }
 

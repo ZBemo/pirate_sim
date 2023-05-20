@@ -1,6 +1,3 @@
-//! TODO: SET UP LOGGER NOW
-//! TODO: switch from f32 to f64 throughout the program
-
 #![warn(clippy::pedantic, clippy::perf)]
 // we do not target 32 bit
 #![allow(clippy::cast_possible_truncation)]
@@ -17,7 +14,7 @@ use log::{trace, warn};
 
 use helpers::RectDimension;
 
-use crate::render::{InputPacket, RenderPacket, Renderer};
+use crate::render::{RenderPacket, RenderTick, Renderer};
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     env_logger::init();
@@ -38,22 +35,23 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     //TODO: feature to regenerate with new seed graphically?
     let gen = worldgen::GenParam {
         seed,
-        poles: worldgen::Poles::Random,
         // 178/255 around 70%
-        target_water: 200,
-        max_ports: 100,
-        max_civilizations: 18,
+        target_water: 178,
+        max_ports: 20,
+        max_civilizations: 4,
 
-        world_size: RectDimension::new(70, 70),
+        world_size: RectDimension::new(100, 100),
+        max_polar_tiles: 400,
+        min_polar_tiles: 280,
     };
 
-    let dimensions = RectDimension::new(80, 80);
+    let dimensions = RectDimension::new(105, 105);
     let ctx = bracket_lib::terminal::BTermBuilder::simple(dimensions.width, dimensions.height)?
         .with_title("Pirate Sim World Gen")
         .build()?;
 
     let (render_s, render_r) = mpsc::channel::<RenderPacket>();
-    let (input_s, input_r) = mpsc::channel::<InputPacket>();
+    let (input_s, input_r) = mpsc::channel::<RenderTick>();
 
     let renderer = Renderer::new_blank(render_r, input_s, dimensions);
 
@@ -70,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 /// a test function to use while architecting renderer
 #[allow(unused)]
 fn render_test() -> Result<(), Box<dyn Error + Send + Sync>> {
-    use render::{InputPacket, RenderPacket, Renderer};
+    use render::{RenderPacket, RenderTick, Renderer};
 
     let dimensions = RectDimension::new(30, 10);
     let ctx = bracket_lib::terminal::BTermBuilder::simple(dimensions.width, dimensions.height)?
@@ -78,7 +76,7 @@ fn render_test() -> Result<(), Box<dyn Error + Send + Sync>> {
         .build()?;
 
     let (render_s, render_r) = mpsc::channel::<RenderPacket>();
-    let (input_s, input_r) = mpsc::channel::<InputPacket>();
+    let (input_s, input_r) = mpsc::channel::<RenderTick>();
 
     let renderer = Renderer::new_blank(render_r, input_s, dimensions);
 
@@ -88,7 +86,7 @@ fn render_test() -> Result<(), Box<dyn Error + Send + Sync>> {
         while running {
             if let Ok(input) = input_r.try_recv() {
                 match input {
-                    InputPacket::Key(_) => {
+                    RenderTick::Key(_) => {
                         let message = format!(
                             "Last update at time {}",
                             std::time::SystemTime::now()
@@ -103,10 +101,12 @@ fn render_test() -> Result<(), Box<dyn Error + Send + Sync>> {
 
                         render_s.send(RenderPacket::NewFrame(to_display)).unwrap();
                     }
-                    InputPacket::LoopClosed => {
+                    RenderTick::LoopClosed => {
                         trace!("window has exited, closing loop");
                         running = false;
                     }
+                    RenderTick::RegisteredGUI(_, _) => todo!(),
+                    RenderTick::RegisteredGUIs(_, _) => todo!(),
                 }
             }
         }

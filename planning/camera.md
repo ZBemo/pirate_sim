@@ -11,7 +11,7 @@ as it would allow the rendering system to do nearly all of the rendering work, w
 ## Architecting the camera system
 **Everything below is an extremely abstract and unrefined idea for the camera architecture**
 
-This might require integrating brevy ECS in order to make it feasible.
+This might require integrating bevy/ECS in order to make it feasible.
 
 First, we need to instill the renderer with some idea of "phsyical space", so that it understands what the camera should and should not render at any 
 given moment.
@@ -20,4 +20,4 @@ Next, We need a list of "renderables" with a position in physical space and some
 
 This may require a mutex.
 
-On each render tick, we would lock renderables, iterate through nad render them if theyre "on screen".
+On each render tick, we would lock renderables, iterate through nad render them if theyre "on screen"
